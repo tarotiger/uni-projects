@@ -1,0 +1,13 @@
+01/08/19    18:00   21:00   created a log in form for seddit 
+02/08/19    15:00   16:00   fixed styling and created sign up form
+03/08/19    23:00   02:20   implemented authentication for sign up and login
+04/08/19    13:45   03:30   implemented feed and getting feed from backend 
+05/08/19    10:00   17:00   can view users who upvoted and public and user feed
+06/08/19    21:00   12:00   implemented comments
+07/08/19    16:00   18:00   allowed user to upvote and downvote live updates
+08/08/19    17:00   20:00   user able to make posts now 
+09/08/19    12:00   03:00   added profiles
+10/08/19    16:00   22:00   implemented search for titles and text
+11/08/19    00:00   02:00   able to comment and delete posts
+12/08/19    12:00   20:00   fixed UI and added subseddit  
+13/08/19    00:00   03:45   added comments to code and fixed up style
