@@ -1,0 +1,70 @@
+#!/bin/dash
+
+# legit-show goes and prints the contents of the specified file as of the
+# specified commit
+# by z5259931 
+
+# checks if legit repository has been intialized
+if [ ! -d ".legit" ]
+then
+    echo "legit-show: error: no .legit directory containing legit repository exists" >&2
+    exit 1
+fi
+
+# checks if log file has been created 
+if [ ! -e ".legit/.leg/log" ] 
+then
+    echo "legit-show: error: your repository does not have any commits yet" >&2
+    exit 1
+fi  
+
+# check usage 
+if [ $# -ne 1 ]
+then 
+    echo "usage: legit-show commit:filename" >&2
+    exit 1
+elif echo $1 | grep -qv ":" 
+then
+    echo "legit-show: error: invalid object $1" >&2
+    exit 1
+fi 
+
+commit=`echo "$1" | cut -d":" -f1`
+filename=`echo "$1" | cut -d":" -f2`
+
+# no commit specified so program will attempt content of files in index 
+if [ -z "$commit" ] 
+then 
+    # copies of files are stored in state, index is reference of the changes 
+    # to the state
+    path=".legit/.leg/state/$filename"
+    if [ -e "$path" ]
+    then 
+        continue 
+    else 
+        echo "legit-show: error: '$filename' not found in index" >&2
+        exit 1
+    fi 
+else
+    # copies of files are stored in state, index is reference of the changes 
+    # to the state
+    path=".legit/.commit/$commit/state/$filename"
+    if [ -d ".legit/.commit/$commit/" ] 
+    then
+        if [ -e "$path" ]
+        then 
+            continue 
+        else 
+            echo "legit-show: error: '$filename' not found in commit $commit" >&2
+            exit 1
+        fi 
+    else 
+        echo "legit-show: error: unknown commit '$commit'" >&2
+        exit 1
+    fi
+fi
+
+while read line 
+do 
+    echo "$line"
+done <$path

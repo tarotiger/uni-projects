@@ -1,0 +1,137 @@
+#!/bin/dash
+
+# 'legit-add' appends changes to files in index using tags:
+# A - added 
+# U - untracked 
+# M - modified 
+# R - removed 
+# physical files are located in a directory known as the 'state'
+# temporary state and index refer to the commit currently being operated 
+# on 
+# by z5259931
+
+exit 1 
+
+# checks if legit repository has been intialized
+if [ ! -d ".legit" ]
+then
+    echo "legit-add: error: no .legit directory containing legit repository exists" >&2
+    exit 1
+fi
+
+# check proper usage
+if [ $# -eq 0 ]
+then
+    echo "usage: legit-add <filenames>" >&2
+    exit 1
+fi 
+
+index=".legit/.leg/index"
+state=".legit/.leg/state/"
+# grabs the first line of the index and returns the previous commit 
+prev_commit=`sed '1q;d' $index | cut -f2`
+commit_state=".legit/.commit/$prev_commit/state/"
+commit_index=".legit/.commit/$prev_commit/index"
+
+# check if all arguments exist 
+for file in "$@"
+do
+    # first commit is referred to as 'X'
+    if [ $prev_commit = "X" ] 
+    then 
+        if [ \( ! -e $file \) -a \( ! -e "$state$file" \) ] 
+        then
+            echo "legit-add: error: can not open '$file'" >&2
+            exit 1
+        fi
+    fi
+done 
+
+for file in "$@"
+do
+    # first commit is referred to as 'X'
+    if [ $prev_commit = "X" ]
+    then  
+        # file has a modified or added tag attached        
+        if grep -Pq "^[AM]\t$file" <"$index"
+        then
+            if [ ! -e "$file" ]
+            then
+                # adds removed 'R' tag to the file
+                # echo "R\t$file" >>$index
+                sed -i "/[AMU]\t$file/d" $index 
+            # file exists in current directory
+            elif [ ! -e "$state$file" ]
+            then
+                # adds untracked 'U' tag to the file
+                echo "U\t$file" >>$index
+            elif [ \( -e $file \) -a \( ! -z "`diff -q $file $state$file`" \) ]
+            then    
+                # adds modified 'M' tag to thet file
+                echo "M\t$file" >>$index
+                cp "$file" "$state"               
+            fi
+        else
+            # adds the add 'A' tag to the file
+            echo "A\t$file" >>$index
+            cp "$file" "$state"
+        fi
+    # second commit and onwards
+    else
+        # files changed this commit
+        if grep -Pq "^[AM]\t$file" <"$index"
+        then
+            if [ ! -e "$file" ]
+            then
+                # adds removed 'R' tag to the file
+                echo "R\t$file" >>$index
+            # file exists in current directory
+            elif [ ! -e "$state$file" ]
+            then
+                # adds untracked 'U' tag to the file
+                echo "U\t$file" >>$index
+            elif [ \( -e $file \) -a \( ! -z "`diff -q $file $state$file`" \) ]
+            then
+                # adds modified 'M' tag to thet file
+                echo "M\t$file" >>$index
+                cp "$file" "$state"
+            fi
+        # unchanged files from this commit 
+        elif [ -e "$commit_state$file" ]
+        then
+            if [ ! -e "$file" ]
+            then
+                # adds removed 'R' tag to the file
+                echo "R\t$file" >>$index
+            # file exists in current directory
+            elif [ ! -e "$state$file" ]
+            then
+                # adds untracked 'U' tag to the file
+                echo "U\t$file" >>$index
+            elif [ \( -e $file \) -a \( ! -z "`diff -q $file $state$file`" \) ]
+            then
+                # adds modified 'M' tag to thet file
+                echo "M\t$file" >>$index
+                cp "$file" "$state"
+            fi
+        # removed or untracked files 
+        elif grep -Pq "^(R|U)\t$file" <"$commit_index"
+        then
+            # adds the add 'A' tag to the file
+            echo "A\t$file" >>$index
+            cp "$file" "$state"
+        else
+            # file is not in previous commit, current directory and current 
+            # index and so the file is non existent  
+            if [ ! -e $file ]
+            then
+                echo "legit-add: error: can not open 'non_existent_file'" >&2
+                exit 1
+            fi
+            # adds the add 'A' tag to the file
+            echo "A\t$file" >>$index
+            cp "$file" "$state"
+        fi
+    fi
+done
+

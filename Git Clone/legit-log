@@ -1,0 +1,35 @@
+#!/bin/dash 
+
+# legit-log accesses the log file located in the .leg subdirectory and uses 
+# the length of the log file to determine the number of commits 
+# by z5259931 
+
+# checks if legit repository has been intialized
+if [ ! -d ".legit" ]
+then
+    echo "legit-log: error: no .legit directory containing legit repository exists" >&2
+    exit 1
+fi
+
+index=".legit/.leg/index"
+log=".legit/.leg/log"
+
+if [ $# -ne 0 ]
+then 
+    echo "usage: legit-log" 
+fi 
+
+if [ -e $log ]
+then
+    commit_no=`wc -l "$log" | cut -d" " -f1`
+    commit_no=$(($commit_no - 1))
+    # prints the contents of the log file and the commit number 
+    while read line 
+    do
+        echo "$commit_no $line"
+        commit_no=$(($commit_no - 1))
+    done <$log
+else 
+    echo "legit-log: error: your repository does not have any commits yet" >&2
+    exit 1 
+fi

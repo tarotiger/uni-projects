@@ -1,0 +1,106 @@
+#!/usr/bin/perl
+
+# legit-branch creates a branch, deletes a branch or shows all current 
+# branches. It does this by creating a branch folder inside the subdirectory 
+# .leg, this keeps track of all the branches 
+# The index keeps track of which branch the changes is related to on the 
+# second line. e.g. 
+# PC        2
+# branch    master 
+# so branch creation and manipulation involves altering the branch 
+# by (z5259931)
+
+use strict;
+use warnings; 
+use File::Copy;
+use File::Path;
+
+# checks if legit repository has been intialized
+if (! -d ".legit") {
+    print STDERR "legit-branch: error: no .legit directory containing legit repository exists\n";
+    exit 1;
+# if log does not exist then no commits 
+} elsif (! -e ".legit/.leg/log") {
+    print STDERR "legit-branch: error: your repository does not have any commits yet\n";
+    exit 1;
+}
+
+if (@ARGV == 0) {
+    foreach my $branch (glob ".legit/.leg/branch/*") {
+        $branch =~ s/\.legit\/\.leg\/branch\///;
+        print "$branch\n";
+    }
+} elsif (@ARGV == 2) {
+    if ($ARGV[0] eq "-d") {
+        my $branch = $ARGV[1];
+        
+        # branch name can't be completely numeric 
+        if ($branch =~ /^[0-9]+$/) {
+            print STDERR "legit-branch: error: invalid branch name '$branch'\n";
+            exit 1;
+        }
+        
+        # opens index file which stores the changes made to current commit 
+        open my $F, '<', ".legit/.leg/index" or die "legit-branch: error: unable to open index: $!";
+        my @index = <$F>;
+        close $F;
+        # grabs the current branch the change is on 
+        $index[1] =~ s/branch\t//;
+        # legit-branch error messages 
+        if ($branch eq "master") {
+            print STDERR "legit-branch: error: can not delete branch 'master'\n";
+            exit 1;
+        } elsif (! -d ".legit/.leg/branch/$branch") {
+            print STDERR "legit-branch: error: branch '$branch' does not exist\n";
+            exit 1;
+        } elsif ($index[1] eq $branch) { 
+            print STDERR "legit-branch: error: cannot delete branch\n";
+            exit 1;
+        } 
+        
+        # deletes the directory storing the branch 
+        rmtree ".legit/.leg/branch/$branch" or die "Failed to remove: $!\n";
+        print "Deleted branch '$branch'\n";
+    } else {
+        print STDERR "usage: legit-branch [-d] [branch-name]\n";
+        exit 1;
+    }
+} elsif (@ARGV == 1) {
+    my $branch_name = $ARGV[0];
+    
+    # branch name can't be completely numeric 
+    if ($branch_name =~ /^[0-9]+$/) {
+        print STDERR "legit-branch: error: invalid branch name '$branch_name'\n";
+        exit 1;
+    }
+    
+    open my $F, '<', ".legit/.leg/index" or die "legit-branch: error: unable to open index: $!";
+    my @index = <$F>;
+    close $F;
+    
+    # creates a branch directory and copies the files from the temporary
+    # state into the new directory
+    if (! -e ".legit/.leg/branch/$branch_name") {
+        mkdir ".legit/.leg/branch/$branch_name";
+        mkdir ".legit/.leg/branch/$branch_name/state";
+        copy ".legit/.leg/index", ".legit/.leg/branch/$branch_name";
+        open my $G, '>', ".legit/.leg/branch/$branch_name/index" or die "legit-branch: error: unable to open index: $!";
+            
+        foreach my $change (@index) {
+            $change =~ s/^branch.*$/branch\t$branch_name/;
+            print $G $change;
+        }
+        
+        close $G;   
+    } else {
+        print STDERR "legit-branch: error: branch '$branch_name' already exists\n";
+        exit 1;
+    }
+    
+    foreach my $file (glob ".legit/.leg/state/*") {
+        copy "$file", ".legit/.leg/branch/$branch_name/state/";
+    }
+} else {
+    print STDERR "usage: legit-branch [-d] [branch-name]\n";
+    exit 1;
+}

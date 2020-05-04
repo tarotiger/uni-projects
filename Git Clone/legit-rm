@@ -1,0 +1,204 @@
+#!/bin/dash
+
+# legit-rm deletes files from either the index (in my file structure it is 
+# known as the 'state') or the working directory 
+# by z5259931
+
+export PATH="$PATH:."
+
+# checks if legit repository has been intialized
+if [ ! -d ".legit" ]
+then
+    echo "legit-status: error: no .legit directory containing legit repository exists" >&2
+    exit 1
+fi
+
+cached=0
+force=0
+index=".legit/.leg/index"
+state=".legit/.leg/state/"
+prev_commit=`head -1 $index | cut -f2`
+commit_index=".legit/.commit/$prev_commit/index"
+
+# no previous commits 
+if [ "$prev_commit" = "X" ]
+then
+    echo "legit-rm: error: your repository does not have any commits yet" >&2
+    exit 1
+fi 
+
+# no arguments 
+if [ $# -eq 0 ] 
+then
+    echo "usage: legit-rm [--force] [--cached] <filenames>" >&2
+    exit 1
+fi 
+
+# checks if arguments exist
+for args in "$@" 
+do
+    # adds options to legit-rm
+    if echo "$args" | grep -Pq "^--"
+    then
+        # checks if options are valid 
+        if [ "$args" = "--cached" ]
+        then
+            cached=1
+        elif [ "$args" = "--force" ]
+        then
+            force=1
+        else
+            echo "usage: legit-rm [--force] [--cached] <filenames>" >&2
+            exit 1
+        fi
+    else  
+        # checks if file exists in the temporary state 
+        if [ ! -e "$state$args" ]
+        then 
+            echo "legit-rm: error: '$args' is not in the legit repository" >&2
+            exit 1
+        fi    
+    fi    
+done
+
+for args in "$@"
+do 
+    # adds options to legit-rm
+    if echo "$args" | grep -Pq "^--"
+    then
+        if [ "$args" = "--cached" ]
+        then
+            cached=1
+        elif [ "$args" = "--force" ]
+        then
+            force=1
+        else
+            echo "usage: legit-rm [--force] [--cached] <filenames>" >&2
+            exit 1
+        fi
+        continue     
+    fi 
+    
+    if [ \( $cached -eq 1 \) -a \( $force -eq 1 \) ]
+    then     
+        rm "$state$args"
+        legit-add "$args"
+    elif [ $cached -eq 1 ]
+    then 
+        # file has been removed from the working directory 
+        if grep -Pq "^R\t$args$" <$index
+        then
+            echo "legit-rm: error: '$args' has changes staged in the index" >&2
+            exit 1
+        # file has been modified before commit 
+        elif grep -Pq "^M\t$args$" <$index
+        then
+            # check if file has been removed 
+            if [ \( ! -e "$args" \) ] 
+            then
+                rm "$state$args"
+                legit-add "$args"
+            # checks difference between current state of file and file 
+            # in working directory 
+            elif [ -z "`diff -q $args $state$args`" ]
+            then
+                # no difference between files so safe to remove 
+                rm "$state$args"
+                legit-add "$args"
+            else
+                echo "legit-rm: error: '$args' in index is different to both working file and repository" >&2
+                exit 1
+            fi
+        # file has been newly added 
+        elif grep -Pq "^A\t$args$" <$index
+        then
+            # check if file has been removed 
+            if [ \( ! -e "$args" \) ] 
+            then
+                rm "$state$args"
+                legit-add "$args"
+            # checks difference between current state of file and file 
+            # in working directory 
+            elif [ -z "`diff -q $args $state$args`" ]
+            then
+                # no difference between files so safe to remove 
+                rm "$state$args"
+                legit-add "$args"
+            else 
+                echo "legit-rm: error: '$args' has changes staged in the index" >&2
+                exit 1
+            fi 
+        else
+            # file is unchanged from previous commit 
+            rm "$state$args"
+            legit-add "$args"
+        fi
+    elif [ $force -eq 1 ]
+    then
+        # file exists to be removed 
+        if [ \( -e "$args" \) -a \( -e "$state$args" \) ]
+        then
+            rm "$state$args"
+            rm "$args"
+            legit-add "$args"
+        else
+            echo "legit-rm: error: '$args' is not in the legit repository" >&2
+            exit 1
+        fi
+    else
+        # file has been removed from the working directory 
+        if grep -Pq "^R\t$args$" <$index
+        then
+            echo "legit-rm: error: '$args' has changes staged in the index" >&2
+            exit 1
+        # file has been changed since last commit 
+        elif grep -Pq "^M\t$args$" <$index
+        then
+            # check if file has been removed 
+            if [ \( ! -e "$args" \) ] 
+            then
+                rm "$state$args"
+                legit-add "$args"
+            # checks difference between current state of file and file 
+            # in working directory 
+            elif [ -z "`diff -q $args $state$args`" ]
+            then
+                echo "legit-rm: error: '$args' has changes staged in the index" >&2
+                exit 1
+            else 
+                echo "legit-rm: error: '$args' in index is different to both working file and repository" >&2
+                exit 1
+            fi
+        # file is newly added 
+        elif grep -Pq "^A\t$args$" <$index
+        then
+            if [ \( ! -e "$args" \) ] 
+            then
+                rm "$state$args"
+                legit-add "$args"
+            else 
+                echo "legit-rm: error: '$args' has changes staged in the index" >&2
+                exit 1
+            fi
+        else
+            # check if file has been removed unexpectedly 
+            if [ \( ! -e "$args" \) ] 
+            then
+                rm "$state$args"
+                legit-add "$args"
+            # checks difference between current state of file and file 
+            # in working directory 
+            elif [ -z "`diff -q $args $state$args`" ]
+            then
+                # no difference between files so safe to remove 
+                rm "$state$args"
+                rm "$args"
+                legit-add "$args"
+            else
+                echo "legit-rm: error: 'a' in repository is different to working file" >&2
+                exit 1
+            fi
+        fi
+    fi
+done
+

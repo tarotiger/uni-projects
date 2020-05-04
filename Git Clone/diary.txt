@@ -1,0 +1,18 @@
+25/06/19    12:20 - 12:40   Coding  Implemented legit-init 
+28/06/19    15:20 - 16:00   Coding  Implemenetd legit-add 
+01/07/19    22:30 - 23:30   Coding  Implemented legit-commit (5 test passed)
+02/07/19    23:30 - 00:40   Coding  Implemented legit-log (6 test passed)
+02/07/19    12:40 - 01:00   Coding  Implemented legit-show (6 test passed) 
+02/07/19    01:00 - 02:45   Debugging   Fixed functionalities of legit-commit (9 test passed) 
+06/07/19    19:30 - 19:45   Coding  Implemented [-a] function for legit-commit (10 tests passed)
+06/07/19    20:04 - 21:00   Coding  Attempted to implement legit-rm without options (10 tests passed)
+07/07/19    18:00 - 21:00   Debugging   Reimplemented subset 0 due to implementation issues with legit-rm 
+08/07/19    14:30 - 19:00   Coding  Implmented legit-rm with new implementation (14 test passed) 
+08/07/19    21:00 - 23:00   Coding  Implemented legit-status with new implementation (17 test passed)
+10/07/19    02:00 - 03:15   Fixing  Updated style for legit-commit, legit-add and legit-rm 
+11/07/19    14:00 - 15:00   Fixing  Fixed style for legit-status, legit-log, legit-show and updated legit-commit to accomodate for branching
+11/07/19    18:00 - 22:00   Coding  Implemented legit-branch (18 test passed)
+12/07/19    14:00 - 22:00   Coding  Implemented parts of legit-checkout (20 test passed) 
+13/07/19    14:00 - 20:00   Coding  Implemented legit-checkout (23 test passed)
+14/07/19    00:00 - 03:00   Testing Wrote tests for legit-add legit-commit and legit-init
+14/07/19    11:00 - 19:00   Testing Wrote tests for all implemented functions 

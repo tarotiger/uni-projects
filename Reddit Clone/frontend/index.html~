@@ -16,6 +16,10 @@
         <!-- your JavaScript should inject your main app here -->
         <!-- The below HTML will not be available in the demo environment -->
         <!-- Your app should be able to dynamically generate something like the below  -->
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 607131f8eb61dbe1da8e58874014ef56022409c0
     </div>
     <script type="module" src="src/index.js" crossorigin="use-credentials"></script>
 </body>

@@ -23,7 +23,7 @@
 .post-author {
   margin: 5px 0;
   font-size: 12px;
-  cursor: pointer;
+  cursor: default;
   color: var(--reddit-blue);
 }
 

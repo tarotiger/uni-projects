@@ -1,0 +1,129 @@
+#!/bin/dash
+
+# legit-status displays the status the files that are in your working 
+# directory, your index (in our case index is for changes and state stores 
+# the physical files) and your repository 
+# by z5259931 
+
+# checks if legit repository has been intialized
+if [ ! -d ".legit" ]
+then
+    echo "legit-status: error: no .legit directory containing legit repository exists" >&2
+    exit 1
+fi
+
+# checks for usage 
+if [ $# -ne 0 ]
+then 
+    echo "usage: legit-status" >&2
+    exit 1
+fi 
+
+index=".legit/.leg/index"
+state=".legit/.leg/state/"
+log=".legit/.leg/log"
+
+# no log file if there has been no commit 
+if [ ! -e "$log" ]
+then 
+    echo "legit-status: error: your repository does not have any commits yet" >&2
+    exit 1
+fi 
+
+# grabs previous commit based on the no. of lines from the log 
+prev_commit=`wc -l "$log" | cut -d" " -f1`
+prev_commit=$(($prev_commit - 1))
+
+commit_index=".legit/.commit/$prev_commit/index"
+commit_state=".legit/.commit/$prev_commit/state/"
+# combines the index of the previous commit and index of current commit
+
+# iterates through files in the latest commit state
+for file in "$commit_state"*
+do
+    # returns file name 
+    file=`echo "$file" | cut -d"/" -f5`
+    
+    if [ ! -e "$commit_state$file" ]
+    then
+        continue
+    elif [ ! -e "$file" ]
+    then
+        if [ -e "$state$file" ] 
+        then
+            echo "$file - file deleted"
+        else
+            echo "$file - deleted" 
+        fi
+    elif grep -Pq "[MUR]\t$file" <"$index"
+    then
+        # 'R' refers to the removed tag
+        if grep -Pq "R\t$file" <"$index"
+        then
+            # checks if file exists in the index
+            if [ -e "$index$file" ]
+            then
+                echo "$file - file deleted"
+            else
+                echo "$file - deleted"
+            fi
+        # 'U' refers to the untracked tag
+        elif grep -Pq "U\t$file" <"$index"
+        then
+            echo "$file - untracked"
+        # 'M' refers to the modified tag
+        elif grep -Pq "M\t$file" <"$index"
+        then
+            # differences between working directory and state 
+            dir_diff=`diff -q "$file" "$state$file"`
+            if [ -z "$dir_diff" ]
+            then
+                echo "$file - file changed, changes staged for commit"
+            else
+                echo "$file - file changed, different changes staged for commit"
+            fi
+        fi
+    # files from previous commit with unrecorded changes
+    else
+        # difference between working directory and index
+        dir_diff=`diff -q "$file" "$state$file"`
+        if [ -z "$dir_diff" ]
+        then
+            echo "$file - same as repo"
+        else
+            echo "$file - file changed, changes not staged for commit"
+        fi
+    fi
+done
+
+# pushes files into the temp index to avoid overlapping 
+cut -f2 "$index" | sort | uniq >"temp_index"
+
+# interates through files in the temporary state
+for file in "$state"*
+do
+    file=`echo $file | cut -d"/" -f4`
+    # ignored files that have already been statused 
+    if [ \( ! -e "$commit_state$file" \) -a \( -e "$state$file" \) ] 
+    then
+        echo "$file - added to index"
+    fi
+done
+
+cut -f2 "$commit_index" | sort | uniq >>"temp_index"
+
+# iterates through files in the current directory
+for file in *
+do
+    if [ \( ! -e "$commit_state$file" \) -a \( ! -e "$state$file" \) ]
+    then
+        # should ignore files that have already been statused
+        if [ \( -e $file \) -a \( "$file" != "temp_index" \) ]
+        then 
+            echo "$file - untracked"
+        fi
+    fi 
+done
+
+rm temp_index
+

@@ -1,0 +1,148 @@
+#!/bin/dash
+
+# legit-commit moves the index document and the files from the temporary
+# state directory located in the .leg subdirectory to a commit folder.
+# The commit folder is located in .legit/.commit/
+# file structure is:
+# .legit -------------------.commit - state 
+# |                         |         |
+# .leg---------tmp-state    index     copies of committed files 
+# |            |
+# tmp-index    copies of files that are being prepared to be commited 
+#
+# by z5259931
+
+export PATH="$PATH:."
+
+commits=".legit/.commit/"
+index=".legit/.leg/index"
+state=".legit/.leg/state/"
+log=".legit/.leg/log"
+branch_path=".legit/.leg/branch/"
+master_state=".legit/.leg/branch/master/state/"
+master=".legit/.leg/branch/master/"
+message=""
+
+# checks if legit repository has been intialized
+if [ ! -d ".legit" ]
+then
+    echo "legit-commit: error: no .legit directory containing legit repository exists" >&2
+    exit 1
+fi
+
+# confirms user inputs correct options and commands
+if [ "$#" -eq 3 ]
+then
+    if [ \( "$1" != "-a" \) -o \( "$2" != "-m" \) ]
+    then
+        echo "usage: legit-commit [-a] -m commit-message" >&2
+        exit 1
+    else
+        for file in "$state"*
+        do
+            file=`echo "$file" | cut -d"/" -f4`
+            legit-add "$file"
+        done
+        message="$3"
+    fi
+else
+    if [ "$1" != "-m" ]
+    then
+        echo "usage: legit-commit [-a] -m commit-message" >&2
+        exit 1
+    fi
+    message="$2"
+fi
+
+# tests if the temporary state directory is empty 
+is_empty=`ls -A $state`
+
+# first commit and directory empty so nothing to commit 
+if [ \( ! -e "$log" \) -a \( -z "$is_empty" \) ]
+then
+    echo "nothing to commit" >&2
+    exit 1
+fi 
+
+# initializes commit repo 
+initialize_repo() {
+    mkdir $commits"0"
+    mkdir $commits"0/state"
+    mkdir ".legit/.leg/branch/master"
+    mkdir ".legit/.leg/branch/master/state"
+}
+
+# returns the amount of changes that has occured
+index_length=`wc -l "$index" | cut -d" " -f1`
+
+# confirms that changes are queued for commit
+# -le 2 because the first line references the previous commit and the second 
+# line refers to the branch 
+if [ \( $index_length -le 2 \) ]
+then
+    echo "nothing to commit"
+    exit 0
+else
+    # when there is nothing in the log it is the first commit 
+    if [ ! -e "$log" ]
+    then
+        initialize_repo
+        cp "$index" $commits"0/"
+        cp "$index" $master
+        # copies files from state dir from the .leg subdirectory
+        # to the state directory inside the commit directory
+        for file in "$state"*
+        do
+            if [ -e $file ]
+            then
+                cp "$file" $commits"0/state"
+                cp "$file" $master_state 
+            fi
+        done
+        # updates the index in .legit/.leg with the previous commit
+        # in this case is...
+        # PC    0
+        echo "PC\t0" >"$index"
+        echo "branch\tmaster" >>"$index"
+        echo "Committed as commit 0"
+        # pushes the message to the log file located in .legit/.leg
+        echo "$message" >"$log"
+    else
+        curr_commit=`wc -l "$log" | cut -d" " -f1`
+        mkdir $commits$curr_commit
+        mkdir $commits$curr_commit"/state/"
+        # grabs the second line the temporary index 
+        branch=`head -2 "$index" | tail -1 | cut -f2`
+        # copies index to the commit directory
+        cp "$index" $commits$curr_commit"/"
+        cp "$index" $branch_path$branch"/"
+        # copies files from state folder to state folder inside commits
+        for file in "$state"*
+        do
+            if [ -e $file ]
+            then
+                cp "$file" $commits$curr_commit"/state/"
+                mv "$file" $branch_path$branch"/state/"
+            fi
+        done
+        # initializes a new temporary index
+        echo "PC\t$curr_commit" >"$index"
+        echo "branch\t$branch" >>"$index"
+        echo "Committed as commit $curr_commit"
+        # from superuser : https://superuser.com/questions/246837/how-do-i-add-text-to-the-beginning-of-a-file-in-bash
+        echo "$message" | cat - "$log" > temp && mv temp "$log"
+    fi
+fi
+
+prev_commit=`sed '1q;d' $index | cut -f2`
+# after successful commit, updates the temporary state in .leg subdirectory
+source=".legit/.commit/$prev_commit/state/"
+dest=".legit/.leg/state/"
+for file in "$source"*
+do
+    if [ -e "$file" ]
+    then
+        cp "$file" "$dest/"
+    fi
+done
+

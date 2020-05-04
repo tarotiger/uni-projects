@@ -1,0 +1,146 @@
+#!/usr/bin/perl
+
+# legit-checkout allows the user to switch between branches, further details 
+# regarding branches can be found in legit_branch 
+# by z5259931 
+
+use strict;
+use warnings;
+use File::Copy;
+use File::Compare;
+
+# checks if legit repository has been intialized
+if (! -d ".legit") {
+    print STDERR "legit-checkout: error: no .legit directory containing legit repository exists\n";
+    exit 1;
+# if log does not exist then no commits 
+} elsif (! -e ".legit/.leg/log") {
+    print STDERR "legit-checkout: error: your repository does not have any commits yet\n";
+    exit 1;
+} elsif (@ARGV != 1) {
+    print STDERR "usage: legit-checkout <branch>\n";
+    exit 1; 
+}
+
+my $index_path = ".legit/.leg/index";
+my $branch_path = ".legit/.leg/branch/";
+my $state = ".legit/.leg/state/";
+# open the temporary index and grabs the current branch
+open my $F, '<', $index_path or die;
+
+my @tmp_index = <$F>;
+# current branch 
+$tmp_index[0] =~ s/^PC\t//;
+my $curr_commit = $tmp_index[0];
+$tmp_index[1] =~ s/^branch\t//;
+my $current_branch = $tmp_index[1];
+chomp $current_branch;
+
+close $F; 
+
+my $branch = $ARGV[0];
+chomp $branch;
+
+# branch does not exist 
+if (! -d ".legit/.leg/branch/$branch") {
+    print STDERR "legit-checkout: error: unknown branch '$branch'\n";
+    exit 1;
+# currently on branch 
+} elsif ($current_branch eq $branch) {
+    print STDERR "Already on branch '$branch'\n";
+    exit 1;
+}
+
+# open the index of the branch getting checked out 
+open my $H, '<', "$branch_path$branch/index" or die;
+
+my @branch_index = <$H>;
+# returns the previous commit before branching
+$branch_index[0] =~ s/^PC\t//;
+my $prev_commit = $branch_index[0];
+chomp $prev_commit;
+
+close $H;
+
+# copies index of changes over to branch directory 
+copy "$index_path", "$branch_path$current_branch/";
+
+# remove files from current branch which have been removed after last
+# commit  
+foreach my $changes (@tmp_index) {
+    # if files have the removed or untracked tag remove the file 
+    if ($changes =~ /^[RU]\t/) {
+        $changes =~ s/^[RU]\t//;
+        unlink ".legit/.leg/branch/$current_branch/state/$changes";
+    }
+}
+
+# check if any further commits have been made since branch 
+if ($prev_commit != $curr_commit) {
+   
+    my @overwrite_files;
+
+    # check whether files will be overwritten 
+    foreach my $file (glob ".legit/.commit/$prev_commit/state/*") {
+        # grabbing the name of the file 
+        $file =~ s/\.legit\/\.commit\/$prev_commit\/state\///;
+        # compares files in the previous commit and files in working dir
+        if (compare("$file", ".legit/.commit/$prev_commit/state/$file") != 0) {
+            # files are different and do not exist in wd or the temporary 
+            # state and so are going to be overwritten 
+            if (! -e "$state$file" && -e "$file") {
+                push @overwrite_files, $file;
+            }
+        }
+    }
+
+    # files are going to be overwritten so legit-checkout will now exit 
+    if (@overwrite_files > 0) {
+        print STDERR "legit-checkout: error: Your changes to the following ";
+        print STDERR "files would be overwritten by checkout:\n";
+        foreach my $overwrite_file (@overwrite_files) {
+            print STDERR "$overwrite_file\n";
+        }
+        exit 1;
+    }
+
+    # move working directory and temporary state into branch 
+    foreach my $dir_file (glob "$state*") {
+        $dir_file =~ s/\.legit\/\.leg\/state\///;
+        move "$state$dir_file", "$branch_path$current_branch/state/";
+        move "$dir_file", "$branch_path$current_branch/state/";
+    }
+    
+        
+    unlink $index_path;
+    
+    # create new temporary index with previous commit and branch 
+    open my $f, '>', $index_path or die;
+    
+    print $f "PC\t$prev_commit\n";
+    print $f "branch\t$branch\n";
+    
+    close $f;
+    
+    # copy files from previous commit to the current directory and 
+    # temporary state
+    foreach my $files (glob ".legit/.commit/$prev_commit/state/*") {
+        $files =~ s/\.legit\/\.commit\/$prev_commit\/state\///;
+        copy ".legit/.commit/$prev_commit/state/$files", "./";
+        copy ".legit/.commit/$prev_commit/state/$files", "$state";
+    }
+}
+
+# update index with current branch information 
+open my $FH, '<', ".legit/.leg/index" or die; 
+my @new_index = <$FH>;
+close $FH;
+
+open my $G, '>', ".legit/.leg/index" or die;
+foreach my $change (@new_index) {
+    $change =~ s/^branch.*$/branch\t$branch/;
+    print $G $change;
+}
+close $G;
+
+print "Switched to branch '$branch'\n";

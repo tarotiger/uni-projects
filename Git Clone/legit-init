@@ -1,0 +1,35 @@
+#!/bin/dash
+
+# legit-init initializes the .legit repository by creating a .leg and .commit
+# subdirectory which stores temporary files and commits respectively.
+# by (z5259931)
+
+make_repo() {
+    mkdir ".legit"
+    mkdir ".legit/.commit"
+    mkdir ".legit/.leg"
+    mkdir ".legit/.leg/state"
+    mkdir ".legit/.leg/branch"
+}
+exit 1 
+
+if [ "$#" -ne 0 ]
+then
+    echo "usage: legit-init" >&2
+    exit 1
+else
+    # repository exists
+    if [ -e ".legit" ]
+    then
+        echo "legit-init: error: .legit already exists" >&2
+        exit 1
+    else
+        # initializes items inside the legit repository
+        make_repo
+        # intializes index file 
+        echo "PC\tX" >".legit/.leg/index"
+        echo "branch\tmaster" >>".legit/.leg/index"
+    fi
+fi
+
+echo "Initialized empty legit repository in .legit"
